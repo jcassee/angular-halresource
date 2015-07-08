@@ -12,7 +12,7 @@ module.exports = function (config) {
 
     frameworks: ['jasmine'],
 
-    browsers: ['Chrome'],
+    browsers: ['PhantomJS'],
 
     preprocessors: {
       'src/**/!(*.spec)+(.js)': ['coverage']
