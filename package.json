@@ -5,6 +5,7 @@
   "repository": "https://github.com/jcassee/angular-halresource",
   "license": "MIT",
   "devDependencies": {
+    "bower": "^1.4",
     "jshint": "^2.8",
     "karma": "^0.12",
     "karma-jasmine": "^0.3",
