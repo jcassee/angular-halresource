@@ -1,14 +1,41 @@
 'use strict';
 
+/**
+ * @ngdoc module
+ * @name halresource
+ * @description
+ *
+ * This module contains a HAL client.
+ */
 angular.module('halresource', [])
 
+  /**
+   * @ngdoc constructor
+   * @name HalContext
+   * @description
+   *
+   * Context for creating linked HAL resources. The context acts as an identity map.
+   */
   .provider('HalContext', function () {
     var profiles = {};
 
     /**
-     * @property {object}
+     * Register a profile.
+     *
+     * @function
+     * @param {string} profile the profile URI
+     * @param {object} properties a properties object as used in 'Object.defineProperties()'
      */
-    this.profiles = profiles;
+    this.registerProfile = function (profile, properties) {
+      // Make sure properties can be removed when applying a different profile
+      var props = angular.copy(properties);
+      angular.forEach(props, function (prop) {
+        prop.enumerable = true;
+        prop.configurable = true;
+      });
+      profiles[profile] = props;
+    };
+    var registerProfile = this.registerProfile;
 
     this.$get = ['$http', '$log', '$q', function ($http, $log, $q) {
 
@@ -28,37 +55,58 @@ angular.module('halresource', [])
          *
          * @function
          * @param {string} uri
+         * @returns {HalResource}
          */
         get: {value: function (uri) {
           var resource = this.resources[uri];
           if (!resource) {
-            resource = this.resources[uri] = new HalResource(uri, this);
+            resource = this.resources[uri] = createHalResource(uri, this);
           }
           return resource;
         }}
       });
+      Object.defineProperties(HalContext, {
+        /**
+         * @type registerProfile
+         */
+        registerProfile: {value: registerProfile}
+      });
+
+      function createHalResource(uri, context) {
+        // Create the resource with an intermediate prototype to add profile-specific properties to
+        var prototype = Object.create(HalResource.prototype);
+        var resource = Object.create(prototype, {
+
+          /**
+           * The resource context. Used to get related resources.
+           * @property
+           */
+          $context: {value: context},
+
+          /**
+           * The prototype that contains the profile-specific properties.
+           * @property
+           */
+          $profilePrototype: {value: prototype}
+        });
+
+        // Initialize the HAL resource self link
+        resource._links = {
+          self: {
+            href: uri
+          }
+        };
+
+        return resource;
+      }
 
       /**
        * HAL resource.
        *
        * @constructor
-       * @param {string} uri
-       * @param {Context} context
        */
-      function HalResource(uri, context) {
-        /**
-         * The resource context. Used to get related resources.
-         *
-         * @property
-         */
-        Object.defineProperty(this, '$context', {value: context});
+      function HalResource() {}
 
-        this._links = {
-          self: {
-            href: uri
-          }
-        };
-      }
       HalResource.prototype = Object.create(Object.prototype, {
         constructor: {value: HalResource},
 
@@ -81,6 +129,22 @@ angular.module('halresource', [])
         }},
 
         /**
+         * Apply a profile to the resource by setting the registered properties on '$profilePrototype'.
+         *
+         * @function
+         * @param {string} [profile] the profile to apply; if absent, uses '$profile'
+         */
+        $applyProfile: {value: function (profile) {
+          profile = profile || this.$profile;
+          var properties = profiles[profile] || {};
+
+          Object.keys(this.$profilePrototype).forEach(function (prop) {
+            delete this.$profilePrototype[prop];
+          }, this);
+          Object.defineProperties(this.$profilePrototype, properties);
+        }},
+
+        /**
          * Create a shallow copy of the resource state (i.e. without '_links' and '_embedded' properties).
          *
          * @function
@@ -99,6 +163,7 @@ angular.module('halresource', [])
          * @function
          * @param {string} rel
          * @param {object} [vars] URI template variables
+         * @returns {string|string[]} the link href or hrefs
          */
         $href: {value: function (rel, vars) {
           return forArray(this._links[rel], function (link) {
@@ -121,6 +186,7 @@ angular.module('halresource', [])
          * @function
          * @param {string} rel
          * @param {object} [vars] URI template variables
+         * @returns {HalResource|HalResource[]} the linked resource or resources
          */
         $rel: {value: function (rel, vars) {
           return forArray(this.$href(rel, vars), function (uri) {
@@ -149,7 +215,7 @@ angular.module('halresource', [])
             url: self.$uri,
             data: self,
             headers: {'Accept': 'application/hal+json'},
-            transformResponse: noTransform
+            transformResponse: angular.identity
           }).then(function (response) {
             try {
               updateResources(response, self.$context);
@@ -189,7 +255,7 @@ angular.module('halresource', [])
             url: self.$uri,
             data: self,
             headers: {'Accept': 'application/hal+json', 'Content-Type': 'application/hal+json'},
-            transformResponse: noTransform
+            transformResponse: angular.identity
           }).then(function (response) {
             self.$syncTime = Date.now();
             try {
@@ -214,7 +280,7 @@ angular.module('halresource', [])
             url: self.$uri,
             data: self.$toState(),
             headers: {'Accept': 'application/hal+json', 'Content-Type': 'application/json'},
-            transformResponse: noTransform
+            transformResponse: angular.identity
           }).then(function (response) {
             self.$syncTime = Date.now();
             try {
@@ -237,7 +303,7 @@ angular.module('halresource', [])
           return $http({
             method: 'delete',
             url: this.$uri,
-            transformResponse: noTransform
+            transformResponse: angular.identity
           }).then(function (response) {
             self.$syncTime = null;
             return response;
@@ -268,17 +334,20 @@ angular.module('halresource', [])
             url: this.$uri,
             data: data,
             headers: headers || {},
-            transformResponse: noTransform
+            transformResponse: angular.identity
           }));
         }}
-      });
-      Object.defineProperties(HalResource, {
-        profiles: {value: {}}
       });
 
       return HalContext;
     }];
 
+    /**
+     * Update resources from a HTTP response.
+     *
+     * @param {object} response
+     * @param {HalContex} context
+     */
     function updateResources(response, context) {
       if (response.status == 204) return;
       if (response.headers('Content-Type') != 'application/hal+json') throw new Error("Not application/hal+json");
@@ -294,6 +363,12 @@ angular.module('halresource', [])
       extractResources(data, context);
     }
 
+    /**
+     * Recursively extract embedded resources and add them to the context, then add the resource itself.
+     *
+     * @param {object} data
+     * @param {HalContext} context
+     */
     function extractResources(data, context) {
       Object.keys(data._embedded || []).forEach(function (rel) {
         var embeds = data._embedded[rel];
@@ -316,21 +391,21 @@ angular.module('halresource', [])
       resource.$syncTime = Date.now();
     }
 
+    /**
+     * Update a resource from HTTP data.
+     *
+     * @param {HalResource} resource
+     * @param {object} data
+     */
     function updateResource(resource, data) {
       var selfHref = ((data._links || {}).self || {}).href;
       if (selfHref != resource.$uri) {
         throw new Error("Self link href differs: expected '" + resource.$uri + "', was '" + selfHref + "'");
       }
 
-      var profileHref = ((data._links || {}).profile || {}).href;
-      if (resource.$profile && resource.$profile != profileHref) {
-        throw new Error("Profile link href differs: expected " + resource.$profile + ", was " + profileHref);
-      }
-
       // Optionally apply profile
-      if (!resource.$profile && profileHref && profileHref in profiles) {
-        Object.defineProperties(resource, profiles[profileHref]);
-      }
+      var profileUri = ((data._links || {}).profile || {}).href;
+      if (profileUri) resource.$applyProfile(profileUri);
 
       // Copy properties
       Object.keys(resource).forEach(function (key) {
@@ -339,10 +414,6 @@ angular.module('halresource', [])
       Object.keys(data).forEach(function (key) {
         resource[key] = data[key];
       });
-    }
-
-    function noTransform(data) {
-      return data;
     }
 
     /**

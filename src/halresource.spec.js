@@ -52,10 +52,12 @@ describe('HalResource', function () {
 
   // Setup
 
-  var context, uri, resource;
+  var context, uri, profileUri, resource;
 
   beforeEach(function () {
     uri = 'http://example.com';
+    profileUri = 'http://example.com/profile';
+    HalContext.registerProfile(profileUri, {foo: {value: 'bar'}});
     context = new HalContext();
     resource = context.get(uri);
   });
@@ -280,5 +282,61 @@ describe('HalResource', function () {
     $httpBackend.flush();
     expect(error).toBe("Self link href differs: expected 'http://example.com', was 'http://example.com/other'");
     expect(resource.name).toBeUndefined();
+  });
+
+  it('applies an explicit profile', function () {
+    expect(resource.foo).toBeUndefined();
+
+    resource.$applyProfile(profileUri);
+    expect(resource.foo).toBe('bar');
+  });
+
+  it('applies an implicit profile', function () {
+    expect(resource.foo).toBeUndefined();
+
+    resource._links.profile = {href: profileUri};
+    resource.$applyProfile();
+    expect(resource.foo).toBe('bar');
+  });
+
+  it('removes the profile', function () {
+    resource.$applyProfile(profileUri);
+    expect(resource.foo).toBe('bar');
+
+    resource.$applyProfile();
+    expect(resource.foo).toBeUndefined();
+  });
+
+  it('removes previous profile when applying new profile', function () {
+    HalContext.registerProfile('http://example.com/profile1', {x: {value: 1}, y: {value: 2}});
+    HalContext.registerProfile('http://example.com/profile2', {x: {value: 3}, z: {value: 4}});
+
+    expect(resource.x).toBeUndefined();
+    expect(resource.y).toBeUndefined();
+    expect(resource.z).toBeUndefined();
+
+    resource.$applyProfile('http://example.com/profile1');
+    expect(resource.x).toBe(1);
+    expect(resource.y).toBe(2);
+    expect(resource.z).toBeUndefined();
+
+    resource.$applyProfile('http://example.com/profile2');
+    expect(resource.x).toBe(3);
+    expect(resource.y).toBeUndefined();
+    expect(resource.z).toBe(4);
+  });
+
+  it('applies the implicit profile from HTTP', function () {
+    expect(resource.foo).toBeUndefined();
+    resource.$get();
+    $httpBackend.expectGET(uri, {'Accept': 'application/hal+json'})
+      .respond({
+        _links: {
+          self: {href: uri},
+          profile: {href: profileUri}
+        }
+      }, {'Content-Type': 'application/hal+json'});
+    $httpBackend.flush();
+    expect(resource.foo).toBe('bar');
   });
 });

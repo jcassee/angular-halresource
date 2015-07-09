@@ -6,9 +6,6 @@ Usage documentation of the module is currently scarce, but the source is
 documented and tested and should be easy to follow. Improving the docs is on
 the roadmap.
 
-Also on the roadmap is a system to add functions to a resource based on its
-profile, but that feature is not finished yet.
-
 
 ## Example usage
 
