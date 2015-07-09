@@ -1,6 +1,6 @@
 {
   "name": "angular-halresource",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "HAL client for AngularJS applications",
   "repository": "https://github.com/jcassee/angular-halresource",
   "license": "MIT",
