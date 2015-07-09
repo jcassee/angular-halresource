@@ -97,7 +97,7 @@ load the car resource.
     user.$applyProfile('http://example.com/profiles/user');
     
     user.firstName = 'John';
-    user.lastName = '';
+    user.lastName = 'Snow';
     console.log(user.fullName);
 
 If the representation received from a GET request contains a profile link, it is
