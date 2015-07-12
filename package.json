@@ -6,15 +6,17 @@
   "license": "MIT",
   "devDependencies": {
     "bower": "^1.4",
+    "coveralls": "^2.11",
     "jshint": "^2.8",
     "karma": "^0.12",
+    "karma-coverage": "^0.4",
     "karma-jasmine": "^0.3",
-    "karma-phantomjs-launcher": "^0.2",
-    "karma-coverage": "^0.4"
+    "karma-phantomjs-launcher": "^0.2"
   },
   "scripts": {
     "postinstall": "bower install",
     "pretest": "jshint src",
-    "test": "karma start karma.conf.js  --single-run"
+    "test": "karma start karma.conf.js  --single-run",
+    "posttest": "[ x$TRAVIS = x ] || ( cat build/coverage/lcov.info | coveralls )"
   }
 }

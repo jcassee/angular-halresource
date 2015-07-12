@@ -21,7 +21,12 @@ module.exports = function (config) {
     reporters: ['progress', 'coverage'],
 
     coverageReporter: {
-      reporters: [{type: 'text-summary'}]
+      dir: 'build/coverage',
+      reporters: [
+        {type: 'text-summary'},
+        {type: 'html', subdir: '.'},
+        {type: 'lcovonly', subdir: '.'}
+      ]
     }
   });
 };
