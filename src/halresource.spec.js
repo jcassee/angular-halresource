@@ -82,16 +82,10 @@ describe('HalResource', function () {
     expect(resource.$context).toBe(context);
   });
 
-  it('has a profile', function () {
-    var profile = 'http://example.com/profile';
-    resource._links.profile = {href: profile};
-    expect(resource.$profile).toBe(profile);
-  });
-
   it('has state', function () {
-    resource.name = 'John Doe';
+    resource.name = 'John';
     resource._embedded = {example: {_links: {self: {href: 'http://example.com/2'}}}};
-    expect(resource.$toState()).toEqual({name: 'John Doe'});
+    expect(resource.$toState()).toEqual({name: 'John'});
   });
 
   it('resolves links', function () {
@@ -111,6 +105,18 @@ describe('HalResource', function () {
     expect($log.warn.logs).toEqual([["Following templated link relation 'example' without variables"]]);
   });
 
+  it('warns when resolving non-templated links with vars', function () {
+    resource._links.example = {href: 'http://example.com/1'};
+    resource.$href('example', {foo: 'bar'});
+    expect($log.warn.logs).toEqual([["Following non-templated link relation 'example' with variables"]]);
+  });
+
+  it('warns when resolving non-templated links from embedded reesources with vars', function () {
+    resource._embedded = {example: {_links: {self: {href: 'http://example.com/1'}}}};
+    resource.$href('example', {foo: 'bar'});
+    expect($log.warn.logs).toEqual([["Following non-templated link relation 'example' with variables"]]);
+  });
+
   it('warns when resolving a deprecated link', function () {
     resource._links.example = {href: 'http://example.com/1', deprecation: 'http://example.com/deprecation'};
     resource.$href('example');
@@ -123,6 +129,30 @@ describe('HalResource', function () {
     var href2 = 'http://example.com/2';
     resource1._links.example = [{href: href1}, {href: href2}];
     expect(resource1.$href('example')).toEqual([href1, href2]);
+  });
+
+  it('resolves links when relation is only embedded', function () {
+    var href = 'http://example.com/1';
+    resource._embedded = {example: {_links: {self: {href: href}}}};
+    expect(resource.$href('example')).toBe(href);
+  });
+
+  it('merges links with self hrefs of embedded resources when resolving', function () {
+    var href1 = 'http://example.com/1';
+    var href2 = 'http://example.com/2';
+    resource._links.example = {href: href1};
+    resource._embedded = {example: {_links: {self: {href: href2}}}};
+    expect(resource.$href('example')).toEqual([href1, href2]);
+  });
+
+  it('merges links with self hrefs of embedded resources when resolving when both are arrays', function () {
+    var href1a = 'http://example.com/1a';
+    var href1b = 'http://example.com/1b';
+    var href2a = 'http://example.com/2a';
+    var href2b = 'http://example.com/2b';
+    resource._links.example = [{href: href1a}, {href: href1b}];
+    resource._embedded = {example: [{_links: {self: {href: href2a}}}, {_links: {self: {href: href2b}}}]};
+    expect(resource.$href('example')).toEqual([href1a, href1b, href2a, href2b]);
   });
 
   it('follows links', function () {
@@ -138,6 +168,12 @@ describe('HalResource', function () {
     expect(resource.$rel('example')).toEqual([resource1, resource2]);
   });
 
+  it('follows links when relation is only embedded', function () {
+    var resource1 = context.get('http://example.com/1');
+    resource._embedded = {example: {_links: {self: {href: resource1.$uri}}}};
+    expect(resource.$rel('example')).toBe(resource1);
+  });
+
   it('starts out unsynced', function () {
     expect(resource.$syncTime).toBeNull();
   });
@@ -145,10 +181,44 @@ describe('HalResource', function () {
   it('performs HTTP GET requests', function () {
     resource.$get();
     $httpBackend.expectGET(uri, {'Accept': 'application/hal+json'})
-        .respond({name: 'John Doe', _links: {self: {href: uri}}}, {'Content-Type': 'application/hal+json'});
+        .respond('{"name": "John", "_links": {"self": {"href": "'+uri+'"}}}', {'Content-Type': 'application/hal+json'});
     $httpBackend.flush();
-    expect(resource.name).toBe('John Doe');
+    expect(resource.name).toBe('John');
     expect(resource.$syncTime / 10).toBeCloseTo(Date.now() / 10, 0);
+  });
+
+  it('rejects a HTTP GET request if the self link in the response data differs', function () {
+    var rejected = false;
+    resource.$get().catch(function () { rejected = true; });
+    $httpBackend.expectGET(uri, {'Accept': 'application/hal+json'})
+      .respond('{"name": "John", "_links": {"self": {"href": "http://example.com/1"}}}',
+        {'Content-Type': 'application/hal+json'});
+    $httpBackend.flush();
+    expect(rejected).toBe(true);
+    expect(resource.name).toBeUndefined();
+    expect(resource.$syncTime).toBeNull();
+  });
+
+  it('rejects a HTTP GET request if the Content-Type is not application/hal+json', function () {
+    var rejected = false;
+    resource.$get().catch(function () { rejected = true; });
+    $httpBackend.expectGET(uri, {'Accept': 'application/hal+json'})
+        .respond('{"name": "John", "_links": {"self": {"href": "'+uri+'"}}}', {'Content-Type': 'application/json'});
+    $httpBackend.flush();
+    expect(rejected).toBe(true);
+    expect(resource.name).toBeUndefined();
+    expect(resource.$syncTime).toBeNull();
+  });
+
+  it('rejects a HTTP GET request if the response contains no data', function () {
+    var rejected = false;
+    resource.$get().catch(function () { rejected = true; });
+    $httpBackend.expectGET(uri, {'Accept': 'application/hal+json'})
+        .respond('', {'Content-Type': 'application/hal+json'});
+    $httpBackend.flush();
+    expect(rejected).toBe(true);
+    expect(resource.name).toBeUndefined();
+    expect(resource.$syncTime).toBeNull();
   });
 
   it('performs HTTP PUT requests', function () {
@@ -164,10 +234,22 @@ describe('HalResource', function () {
     resource.$put();
     $httpBackend.expectPUT(uri, {"_links":{"self":{"href":"http://example.com"}}},
           {'Accept': 'application/hal+json', 'Content-Type': 'application/hal+json'})
-        .respond({name: 'John Doe', _links: {self: {href: uri}}}, {'Content-Type': 'application/hal+json'});
+        .respond({name: 'John', _links: {self: {href: uri}}}, {'Content-Type': 'application/hal+json'});
     $httpBackend.flush();
-    expect(resource.name).toBe('John Doe');
+    expect(resource.name).toBe('John');
     expect(resource.$syncTime / 10).toBeCloseTo(Date.now() / 10, 0);
+  });
+
+  it('rejects a HTTP PUT request with HAL response if the response contains no data', function () {
+    var rejected = false;
+    resource.$put().catch(function () { rejected = true; });
+    $httpBackend.expectPUT(uri, {"_links":{"self":{"href":"http://example.com"}}},
+        {'Accept': 'application/hal+json', 'Content-Type': 'application/hal+json'})
+      .respond('', {'Content-Type': 'application/hal+json'});
+    $httpBackend.flush();
+    expect(rejected).toBe(true);
+    expect(resource.name).toBeUndefined();
+    expect(resource.$syncTime / 10).toBeCloseTo(Date.now() / 10, 0);  // because the request was accepted
   });
 
   it('performs state HTTP PUT requests', function () {
@@ -179,14 +261,26 @@ describe('HalResource', function () {
     expect(resource.$syncTime / 10).toBeCloseTo(Date.now() / 10, 0);
   });
 
-  it('performs HTTP PUT requests with HAL response', function () {
+  it('performs state HTTP PUT requests with HAL response', function () {
     resource.$putState();
     $httpBackend.expectPUT(uri, {},
           {'Accept': 'application/hal+json', 'Content-Type': 'application/json'})
-        .respond({name: 'John Doe', _links: {self: {href: uri}}}, {'Content-Type': 'application/hal+json'});
+        .respond('{"name": "John", "_links": {"self": {"href": "'+uri+'"}}}', {'Content-Type': 'application/hal+json'});
     $httpBackend.flush();
-    expect(resource.name).toBe('John Doe');
+    expect(resource.name).toBe('John');
     expect(resource.$syncTime / 10).toBeCloseTo(Date.now() / 10, 0);
+  });
+
+  it('rejects a state HTTP PUT request with HAL response if the response contains no data', function () {
+    var rejected = false;
+    resource.$putState().catch(function () { rejected = true; });
+    $httpBackend.expectPUT(uri, {},
+        {'Accept': 'application/hal+json', 'Content-Type': 'application/json'})
+      .respond('', {'Content-Type': 'application/hal+json'});
+    $httpBackend.flush();
+    expect(rejected).toBe(true);
+    expect(resource.name).toBeUndefined();
+    expect(resource.$syncTime / 10).toBeCloseTo(Date.now() / 10, 0);  // because the request was accepted
   });
 
   it('performs HTTP DELETE requests', function () {
@@ -216,9 +310,9 @@ describe('HalResource', function () {
   it('performs a HTTP GET on load if not yet synced', function () {
     resource.$load();
     $httpBackend.expectGET(uri, {'Accept': 'application/hal+json'})
-      .respond({name: 'John Doe', _links: {self: {href: uri}}}, {'Content-Type': 'application/hal+json'});
+      .respond({name: 'John', _links: {self: {href: uri}}}, {'Content-Type': 'application/hal+json'});
     $httpBackend.flush();
-    expect(resource.name).toBe('John Doe');
+    expect(resource.name).toBe('John');
     expect(resource.$syncTime / 10).toBeCloseTo(Date.now() / 10, 0);
   });
 
@@ -230,12 +324,12 @@ describe('HalResource', function () {
     expect(resolved).toBe(true);
   });
 
-  it('adds embedded resources from HTTP to the context', function () {
+  it('adds embedded resources from HTTP to the context recursively', function () {
     var carResource = context.get('http://example.com/car');
     resource.$get();
     $httpBackend.expectGET(uri, {'Accept': 'application/hal+json'})
       .respond({
-        name: 'John Doe',
+        name: 'John',
         _links: {
           self: {href: uri}
         },
@@ -264,7 +358,7 @@ describe('HalResource', function () {
         }
       }, {'Content-Type': 'application/hal+json'});
     $httpBackend.flush();
-    expect(resource.name).toBe('John Doe');
+    expect(resource.name).toBe('John');
     expect(resource.$rel('hat')).toBe(context.get('http://example.com/hat'));
     expect(resource.$rel('car')).toBe(carResource);
     expect(carResource.brand).toBe('Porsche');
@@ -277,7 +371,7 @@ describe('HalResource', function () {
     var error = null;
     resource.$get().catch(function (e) { error = e; });
     $httpBackend.expectGET(uri, {'Accept': 'application/hal+json'})
-      .respond({name: 'John Doe', _links: {self: {href: 'http://example.com/other'}}},
+      .respond({name: 'John', _links: {self: {href: 'http://example.com/other'}}},
         {'Content-Type': 'application/hal+json'});
     $httpBackend.flush();
     expect(error).toBe("Self link href differs: expected 'http://example.com', was 'http://example.com/other'");
@@ -287,23 +381,24 @@ describe('HalResource', function () {
   it('applies an explicit profile', function () {
     expect(resource.foo).toBeUndefined();
 
-    resource.$applyProfile(profileUri);
+    resource.$profile = profileUri;
+    expect(resource.$profile).toBe(profileUri);
     expect(resource.foo).toBe('bar');
   });
 
-  it('applies an implicit profile', function () {
+  it('removes the profile when setting it to null', function () {
+    resource.$profile = profileUri;
+    expect(resource.foo).toBe('bar');
+
+    resource.$profile = null;
     expect(resource.foo).toBeUndefined();
-
-    resource._links.profile = {href: profileUri};
-    resource.$applyProfile();
-    expect(resource.foo).toBe('bar');
   });
 
-  it('removes the profile', function () {
-    resource.$applyProfile(profileUri);
+  it('removes the profile when setting it to a non-registered URI', function () {
+    resource.$profile = profileUri;
     expect(resource.foo).toBe('bar');
 
-    resource.$applyProfile();
+    resource.$profile = 'http://example.com/profile1';
     expect(resource.foo).toBeUndefined();
   });
 
@@ -315,12 +410,12 @@ describe('HalResource', function () {
     expect(resource.y).toBeUndefined();
     expect(resource.z).toBeUndefined();
 
-    resource.$applyProfile('http://example.com/profile1');
+    resource.$profile = 'http://example.com/profile1';
     expect(resource.x).toBe(1);
     expect(resource.y).toBe(2);
     expect(resource.z).toBeUndefined();
 
-    resource.$applyProfile('http://example.com/profile2');
+    resource.$profile = 'http://example.com/profile2';
     expect(resource.x).toBe(3);
     expect(resource.y).toBeUndefined();
     expect(resource.z).toBe(4);

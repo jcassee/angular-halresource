@@ -75,6 +75,7 @@ angular.module('halresource', [])
       function createHalResource(uri, context) {
         // Create the resource with an intermediate prototype to add profile-specific properties to
         var prototype = Object.create(HalResource.prototype);
+        var profile = null;
         var resource = Object.create(prototype, {
 
           /**
@@ -84,10 +85,29 @@ angular.module('halresource', [])
           $context: {value: context},
 
           /**
-           * The prototype that contains the profile-specific properties.
-           * @property
+           * The resource profile URI. If profile properties have been registered for this URI (using
+           * HalContextProvider.registerProfile or HalContext.registerProfile), the properties will be defined on the
+           * resource.
+           *
+           * Setting the profile to 'undefined' or 'null' will remove the profile.
+           *
+           * @property {string}
            */
-          $profilePrototype: {value: prototype}
+          $profile: {
+            get: function () {
+              return profile;
+            },
+            set: function (value) {
+              profile = value;
+
+              Object.keys(prototype).forEach(function (prop) {
+                delete prototype[prop];
+              }, this);
+
+              var properties = profile ? profiles[profile] || {} : {};
+              Object.defineProperties(prototype, properties);
+            }
+          }
         });
 
         // Initialize the HAL resource self link
@@ -120,31 +140,6 @@ angular.module('halresource', [])
         }},
 
         /**
-         * The resource profile.
-         *
-         * @property {string}
-         */
-        $profile: {get: function () {
-          return (this._links.profile || {}).href;
-        }},
-
-        /**
-         * Apply a profile to the resource by setting the registered properties on '$profilePrototype'.
-         *
-         * @function
-         * @param {string} [profile] the profile to apply; if absent, uses '$profile'
-         */
-        $applyProfile: {value: function (profile) {
-          profile = profile || this.$profile;
-          var properties = profiles[profile] || {};
-
-          Object.keys(this.$profilePrototype).forEach(function (prop) {
-            delete this.$profilePrototype[prop];
-          }, this);
-          Object.defineProperties(this.$profilePrototype, properties);
-        }},
-
-        /**
          * Create a shallow copy of the resource state (i.e. without '_links' and '_embedded' properties).
          *
          * @function
@@ -158,7 +153,7 @@ angular.module('halresource', [])
         }},
 
         /**
-         * Resolve the href of a relation.
+         * Resolve the href of a relation. Returns hrefs from from links and embedded resources.
          *
          * @function
          * @param {string} rel
@@ -166,18 +161,45 @@ angular.module('halresource', [])
          * @returns {string|string[]} the link href or hrefs
          */
         $href: {value: function (rel, vars) {
-          return forArray(this._links[rel], function (link) {
-            if ('templated' in link && !vars) {
-              $log.warn("Following templated link relation '" + rel + "' without variables");
-            }
-            if ('deprecation' in link) {
-              $log.warn("Following deprecated link relation '" + rel + "': " + link.deprecation);
-            }
+          var templated = false;
+          var nonTemplated = false;
+          var deprecation = {};
+
+          var linkHrefs = forArray(this._links[rel], function (link) {
+            if ('templated' in link) templated = true;
+            if (!('templated' in link)) nonTemplated = true;
+            if ('deprecation' in link) deprecation[link.deprecation] = true;
 
             var uri = link.href;
             if (vars) uri = new UriTemplate(uri).fillFromObject(vars);
             return uri;
           }, this);
+
+          var embeddedHrefs = forArray((this._embedded || {})[rel], function (embedded) {
+            nonTemplated = true;
+            return embedded._links.self.href;
+          }, this);
+
+          if (templated && !vars) {
+            $log.warn("Following templated link relation '" + rel + "' without variables");
+          }
+          if (nonTemplated && vars) {
+            $log.warn("Following non-templated link relation '" + rel + "' with variables");
+          }
+          var deprecationUris = Object.keys(deprecation);
+          if (deprecationUris.length > 0) {
+            $log.warn("Following deprecated link relation '" + rel + "': " + deprecationUris.join(', '));
+          }
+
+          if (!embeddedHrefs) {
+            return linkHrefs;
+          } else if (!linkHrefs) {
+            return embeddedHrefs;
+          } else {
+            if (!angular.isArray(linkHrefs)) linkHrefs = [linkHrefs];
+            if (!angular.isArray(embeddedHrefs)) embeddedHrefs = [embeddedHrefs];
+            return linkHrefs.concat(embeddedHrefs);
+          }
         }},
 
         /**
@@ -373,13 +395,6 @@ angular.module('halresource', [])
       Object.keys(data._embedded || []).forEach(function (rel) {
         var embeds = data._embedded[rel];
 
-        // Add links to embedded resources if missing
-        if (!(rel in data._links)) {
-          data._links[rel] = forArray(embeds, function (embed) {
-            return {href: embed._links.self.href};
-          });
-        }
-
         // Recurse into embedded resources
         forArray(embeds, function (embed) {
           extractResources(embed, context);
@@ -392,20 +407,15 @@ angular.module('halresource', [])
     }
 
     /**
-     * Update a resource from HTTP data.
+     * Update a resource from HTTP data. Will use _links.profile.href to set $profile, if present.
      *
      * @param {HalResource} resource
      * @param {object} data
      */
     function updateResource(resource, data) {
-      var selfHref = ((data._links || {}).self || {}).href;
-      if (selfHref != resource.$uri) {
-        throw new Error("Self link href differs: expected '" + resource.$uri + "', was '" + selfHref + "'");
-      }
-
       // Optionally apply profile
       var profileUri = ((data._links || {}).profile || {}).href;
-      if (profileUri) resource.$applyProfile(profileUri);
+      if (profileUri) resource.$profile = profileUri;
 
       // Copy properties
       Object.keys(resource).forEach(function (key) {

@@ -94,7 +94,7 @@ load the car resource.
 
     context = new HalContext();
     user = context.get('http://example.com/john');
-    user.$applyProfile('http://example.com/profiles/user');
+    user.$profile = 'http://example.com/profiles/user';
     
     user.firstName = 'John';
     user.lastName = 'Snow';

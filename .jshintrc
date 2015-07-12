@@ -1,16 +1,11 @@
 {
   "globalstrict": true,
+  "browser": true,
+  "jasmine": true,
   "globals": {
-    "window": false,
     "angular": false,
     "module": false,
     "inject": false,
-    "afterEach": false,
-    "beforeEach": false,
-    "describe": false,
-    "expect": false,
-    "it": false,
-    "spyOn": false,
     "UriTemplate": false
   }
 }
