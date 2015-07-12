@@ -2,7 +2,7 @@
 
 [![Travis](https://img.shields.io/travis/jcassee/angular-halresource.svg)](https://travis-ci.org/jcassee/angular-halresource) 
 [![Coveralls](https://img.shields.io/coveralls/jcassee/angular-halresource.svg)](https://coveralls.io/github/jcassee/angular-halresource) 
-[![Bower](https://img.shields.io/bower/v/angular-halresource.svg)](https://bower.io/angular-halresource) 
+[![Bower](https://img.shields.io/bower/v/angular-halresource.svg)](http://bower.io/search/?q=angular-halresource) 
 [![License](https://img.shields.io/github/license/jcassee/angular-halresource.svg)](https://github.com/jcassee/angular-halresource/blob/master/LICENSE.md)
 
 A HAL client for AngularJS applications.
