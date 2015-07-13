@@ -17,7 +17,7 @@ angular.module('halresource', [])
    * Context for creating linked HAL resources. The context acts as an identity map.
    */
   .provider('HalContext', function () {
-    var profiles = {};
+    var registeredProfiles = {};
 
     /**
      * Register a profile.
@@ -33,7 +33,7 @@ angular.module('halresource', [])
         prop.enumerable = true;
         prop.configurable = true;
       });
-      profiles[profile] = props;
+      registeredProfiles[profile] = props;
     };
     var registerProfile = this.registerProfile;
 
@@ -98,14 +98,17 @@ angular.module('halresource', [])
               return profile;
             },
             set: function (value) {
-              profile = value;
-
               Object.keys(prototype).forEach(function (prop) {
                 delete prototype[prop];
               }, this);
 
-              var properties = profile ? profiles[profile] || {} : {};
-              Object.defineProperties(prototype, properties);
+              var profiles = angular.isArray(value) ? value : [value];
+              profiles.forEach(function (profile) {
+                var properties = profile ? registeredProfiles[profile] || {} : {};
+                Object.defineProperties(prototype, properties);
+              });
+
+              profile = value;
             }
           }
         });
@@ -368,7 +371,7 @@ angular.module('halresource', [])
      * Update resources from a HTTP response.
      *
      * @param {object} response
-     * @param {HalContex} context
+     * @param {HalContext} context
      */
     function updateResources(response, context) {
       if (response.status == 204) return;
@@ -413,9 +416,11 @@ angular.module('halresource', [])
      * @param {object} data
      */
     function updateResource(resource, data) {
-      // Optionally apply profile
-      var profileUri = ((data._links || {}).profile || {}).href;
-      if (profileUri) resource.$profile = profileUri;
+      // Optionally apply profile(s)
+      var profileUris = forArray((data._links || {}).profile || {}, function (link) {
+        return link.href;
+      });
+      if (profileUris) resource.$profile = profileUris;
 
       // Copy properties
       Object.keys(resource).forEach(function (key) {

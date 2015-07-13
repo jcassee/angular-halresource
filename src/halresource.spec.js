@@ -378,12 +378,24 @@ describe('HalResource', function () {
     expect(resource.name).toBeUndefined();
   });
 
-  it('applies an explicit profile', function () {
+  it('applies a profile', function () {
     expect(resource.foo).toBeUndefined();
 
     resource.$profile = profileUri;
     expect(resource.$profile).toBe(profileUri);
     expect(resource.foo).toBe('bar');
+  });
+
+  it('applies an array of profiles', function () {
+    var profileUri2 = 'http://example.com/profile1';
+    HalContext.registerProfile(profileUri2, {qux: {value: 'baz'}});
+
+    expect(resource.foo).toBeUndefined();
+
+    resource.$profile = [profileUri, profileUri2];
+    expect(resource.$profile).toEqual([profileUri, profileUri2]);
+    expect(resource.foo).toBe('bar');
+    expect(resource.qux).toBe('baz');
   });
 
   it('removes the profile when setting it to null', function () {
@@ -421,7 +433,7 @@ describe('HalResource', function () {
     expect(resource.z).toBe(4);
   });
 
-  it('applies the implicit profile from HTTP', function () {
+  it('applies the profile from HTTP data', function () {
     expect(resource.foo).toBeUndefined();
     resource.$get();
     $httpBackend.expectGET(uri, {'Accept': 'application/hal+json'})
@@ -433,5 +445,26 @@ describe('HalResource', function () {
       }, {'Content-Type': 'application/hal+json'});
     $httpBackend.flush();
     expect(resource.foo).toBe('bar');
+  });
+
+  it('applies an array of profiles from HTTP data', function () {
+    var profileUri2 = 'http://example.com/profile1';
+    HalContext.registerProfile(profileUri2, {qux: {value: 'baz'}});
+
+    expect(resource.foo).toBeUndefined();
+    resource.$get();
+    $httpBackend.expectGET(uri, {'Accept': 'application/hal+json'})
+      .respond({
+        _links: {
+          self: {href: uri},
+          profile: [
+            {href: profileUri},
+            {href: profileUri2}
+          ]
+        }
+      }, {'Content-Type': 'application/hal+json'});
+    $httpBackend.flush();
+    expect(resource.foo).toBe('bar');
+    expect(resource.qux).toBe('baz');
   });
 });
