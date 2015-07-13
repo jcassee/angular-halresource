@@ -6,7 +6,9 @@
   "license": "MIT",
   "main": "src/halresource.js",
   "ignore": [
-    ".*"
+    ".editorconfig",
+    ".gitignore",
+    ".travis.yml"
   ],
   "dependencies": {
     "angular": "^1.3",
