@@ -231,7 +231,7 @@ angular.module('halresource', [])
          * Perform a HTTP GET request and update the resource with the response data.
          *
          * @function
-         * @returns a promise that is resolved to the response
+         * @returns a promise that is resolved to the resource
          */
         $get: {value: function () {
           var self = this;
@@ -244,7 +244,7 @@ angular.module('halresource', [])
           }).then(function (response) {
             try {
               updateResources(response, self.$context);
-              return response;
+              return self;
             } catch (e) {
               return $q.reject(e.message);
             }
@@ -255,14 +255,15 @@ angular.module('halresource', [])
          * Call $get if the resource is not synchronized.
          *
          * @function
-         * @returns a promise that is either resolved to the response or 'null' if the resource was already synced
+         * @returns a promise that is resolved to the resource
          * @see HalResource#$syncTime
          */
         $load: {value: function () {
+          var self = this;
           if (this.$syncTime) {
-            return $q.when();
+            return $q.when(self);
           } else {
-            return this.$get();
+            return self.$get();
           }
         }},
 
@@ -271,7 +272,7 @@ angular.module('halresource', [])
          * if any.
          *
          * @function
-         * @returns a promise that is resolved to the response
+         * @returns a promise that is resolved to the resource
          */
         $put: {value: function () {
           var self = this;
@@ -285,7 +286,7 @@ angular.module('halresource', [])
             self.$syncTime = Date.now();
             try {
               updateResources(response, self.$context);
-              return response;
+              return self;
             } catch (e) {
               return $q.reject(e.message);
             }
@@ -296,7 +297,7 @@ angular.module('halresource', [])
          * Perform a HTTP PUT request with the resource state and update the resource with the response data, if any.
          *
          * @function
-         * @returns a promise that is resolved to the response
+         * @returns a promise that is resolved to the resource
          */
         $putState: {value: function () {
           var self = this;
@@ -310,7 +311,7 @@ angular.module('halresource', [])
             self.$syncTime = Date.now();
             try {
               updateResources(response, self.$context);
-              return response;
+              return self;
             } catch (e) {
               return $q.reject(e.message);
             }
@@ -321,7 +322,7 @@ angular.module('halresource', [])
          * Perform a HTTP DELETE request and mark the resource as unsychronized.
          *
          * @function
-         * @returns a promise that is resolved to the response
+         * @returns a promise that is resolved to the resource
          */
         $delete: {value: function () {
           var self = this;
@@ -331,7 +332,7 @@ angular.module('halresource', [])
             transformResponse: angular.identity
           }).then(function (response) {
             self.$syncTime = null;
-            return response;
+            return self;
           });
         }},
 

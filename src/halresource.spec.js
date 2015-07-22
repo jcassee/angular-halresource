@@ -179,10 +179,12 @@ describe('HalResource', function () {
   });
 
   it('performs HTTP GET requests', function () {
-    resource.$get();
+    var promiseResult = null;
+    resource.$get().then(function (result) { promiseResult = result; });
     $httpBackend.expectGET(uri, {'Accept': 'application/hal+json'})
         .respond('{"name": "John", "_links": {"self": {"href": "'+uri+'"}}}', {'Content-Type': 'application/hal+json'});
     $httpBackend.flush();
+    expect(promiseResult).toBe(resource);
     expect(resource.name).toBe('John');
     expect(resource.$syncTime / 10).toBeCloseTo(Date.now() / 10, 0);
   });
@@ -222,20 +224,24 @@ describe('HalResource', function () {
   });
 
   it('performs HTTP PUT requests', function () {
-    resource.$put();
+    var promiseResult = null;
+    resource.$put().then(function (result) { promiseResult = result; });
     $httpBackend.expectPUT(uri, {"_links":{"self":{"href":"http://example.com"}}},
           {'Accept': 'application/hal+json', 'Content-Type': 'application/hal+json'})
         .respond(204);
     $httpBackend.flush();
+    expect(promiseResult).toBe(resource);
     expect(resource.$syncTime / 10).toBeCloseTo(Date.now() / 10, 0);
   });
 
   it('performs HTTP PUT requests with HAL response', function () {
-    resource.$put();
+    var promiseResult = null;
+    resource.$put().then(function (result) { promiseResult = result; });
     $httpBackend.expectPUT(uri, {"_links":{"self":{"href":"http://example.com"}}},
           {'Accept': 'application/hal+json', 'Content-Type': 'application/hal+json'})
         .respond({name: 'John', _links: {self: {href: uri}}}, {'Content-Type': 'application/hal+json'});
     $httpBackend.flush();
+    expect(promiseResult).toBe(resource);
     expect(resource.name).toBe('John');
     expect(resource.$syncTime / 10).toBeCloseTo(Date.now() / 10, 0);
   });
@@ -253,20 +259,24 @@ describe('HalResource', function () {
   });
 
   it('performs state HTTP PUT requests', function () {
-    resource.$putState();
+    var promiseResult = null;
+    resource.$putState().then(function (result) { promiseResult = result; });
     $httpBackend.expectPUT(uri, {},
           {'Accept': 'application/hal+json', 'Content-Type': 'application/json'})
         .respond(204);
     $httpBackend.flush();
+    expect(promiseResult).toBe(resource);
     expect(resource.$syncTime / 10).toBeCloseTo(Date.now() / 10, 0);
   });
 
   it('performs state HTTP PUT requests with HAL response', function () {
-    resource.$putState();
+    var promiseResult = null;
+    resource.$putState().then(function (result) { promiseResult = result; });
     $httpBackend.expectPUT(uri, {},
           {'Accept': 'application/hal+json', 'Content-Type': 'application/json'})
         .respond('{"name": "John", "_links": {"self": {"href": "'+uri+'"}}}', {'Content-Type': 'application/hal+json'});
     $httpBackend.flush();
+    expect(promiseResult).toBe(resource);
     expect(resource.name).toBe('John');
     expect(resource.$syncTime / 10).toBeCloseTo(Date.now() / 10, 0);
   });
@@ -284,44 +294,54 @@ describe('HalResource', function () {
   });
 
   it('performs HTTP DELETE requests', function () {
+    var promiseResult = null;
     resource.$syncTime = 1;
-    resource.$delete();
+    resource.$delete().then(function (result) { promiseResult = result; });
     $httpBackend.expectDELETE(uri).respond(204);
     $httpBackend.flush();
+    expect(promiseResult).toBe(resource);
     expect(resource.$syncTime).toBeNull();
   });
 
   it('performs HTTP POST requests', function () {
+    var promiseResult = null;
     resource.$syncTime = 1;
-    resource.$post('Test', {'Accept': '*/*', 'Content-Type': 'text/plain'});
+    var promise = resource.$post('Test', {'Accept': '*/*', 'Content-Type': 'text/plain'});
+    promise.then(function (result) { promiseResult = result; });
     $httpBackend.expectPOST(uri, 'Test', {'Accept': '*/*', 'Content-Type': 'text/plain'}).respond(204);
     $httpBackend.flush();
+    expect(promiseResult.status).toBe(204);
     expect(resource.$syncTime).toBe(1);
   });
 
   it('performs HTTP POST requests without headers', function () {
+    var promiseResult = null;
     resource.$syncTime = 1;
-    resource.$post('Test');
+    var promise = resource.$post('Test');
+    promise.then(function (result) { promiseResult = result; });
     $httpBackend.expectPOST(uri, 'Test').respond(204);
     $httpBackend.flush();
+    expect(promiseResult.status).toBe(204);
     expect(resource.$syncTime).toBe(1);
   });
 
   it('performs a HTTP GET on load if not yet synced', function () {
-    resource.$load();
+    var promiseResult = null;
+    resource.$load().then(function (result) { promiseResult = result; });
     $httpBackend.expectGET(uri, {'Accept': 'application/hal+json'})
       .respond({name: 'John', _links: {self: {href: uri}}}, {'Content-Type': 'application/hal+json'});
     $httpBackend.flush();
+    expect(promiseResult).toBe(resource);
     expect(resource.name).toBe('John');
     expect(resource.$syncTime / 10).toBeCloseTo(Date.now() / 10, 0);
   });
 
   it('returns a resolved promise on load if already synced', function () {
-    var resolved = false;
+    var promiseResult = null;
     resource.$syncTime = 1;
-    resource.$load().then(function () { resolved = true; });
+    resource.$load().then(function (result) { promiseResult = result; });
     $rootScope.$digest();
-    expect(resolved).toBe(true);
+    expect(promiseResult).toBe(resource);
   });
 
   it('adds embedded resources from HTTP to the context recursively', function () {
