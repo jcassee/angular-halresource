@@ -36,6 +36,20 @@ angular.module('halresource', [])
     };
     var registerProfile = this.registerProfile;
 
+    /**
+     * Register profiles.
+     *
+     * @function
+     * @param {object} profiles an object mapping profile URIs to properties objects as used in
+     *                          'Object.defineProperties()'
+     */
+    this.registerProfiles = function(profiles) {
+      angular.forEach(profiles, function (properties, profile) {
+        this.registerProfile(profile, properties);
+      }, this);
+    };
+    var registerProfiles = this.registerProfiles;
+
     this.$get = ['$http', '$log', '$q', function ($http, $log, $q) {
 
       /**
@@ -68,7 +82,12 @@ angular.module('halresource', [])
         /**
          * @type registerProfile
          */
-        registerProfile: {value: registerProfile}
+        registerProfile: {value: registerProfile},
+
+        /**
+         * @type registerProfiles
+         */
+        registerProfiles: {value: registerProfiles}
       });
 
       function createHalResource(uri, context) {

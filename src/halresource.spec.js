@@ -498,4 +498,18 @@ describe('HalResource', function () {
       .respond(204);
     $httpBackend.flush();
   });
+
+  it('registers profiles in bulk', function () {
+    expect(resource.foo).toBeUndefined();
+    expect(resource.qux).toBeUndefined();
+
+    HalContext.registerProfiles({
+      'http://example.com/profile1': {foo: {value: 'bar'}},
+      'http://example.com/profile2': {qux: {value: 'baz'}}
+    });
+
+    resource.$profile = ['http://example.com/profile1', 'http://example.com/profile2'];
+    expect(resource.foo).toBe('bar');
+    expect(resource.qux).toBe('baz');
+  });
 });
