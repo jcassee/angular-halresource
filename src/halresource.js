@@ -76,6 +76,20 @@ angular.module('halresource', [])
             resource = this.resources[uri] = createHalResource(uri, this);
           }
           return resource;
+        }},
+
+        /**
+         * Copy a resource (using angular.copy) into this context.
+         *
+         * @function
+         * @param {HalResource} resource
+         * @returns {HalResource} a copy of the resource in this context
+         */
+        copy: {value: function (resource) {
+          var copy = this.get(resource.$uri);
+          angular.copy(resource, copy);
+          copy.$profile = resource.$profile;
+          return copy;
         }}
       });
       Object.defineProperties(HalContext, {

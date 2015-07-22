@@ -31,6 +31,22 @@ describe('HalContext', function () {
     expect(resource1a).toBe(resource1b);
     expect(resource1a).not.toBe(resource2);
   });
+
+  it('copies resources from another context', function () {
+    var profileUri = 'http://example.com/profile';
+    HalContext.registerProfile(profileUri, {foo: {value: 'bar'}});
+
+    var resource = context.get('http://example.com');
+    resource.$profile = profileUri;
+    resource.name = 'John';
+
+    var context2 = new HalContext();
+    var resource2 = context2.copy(resource);
+
+    expect(resource2).not.toBe(resource);
+    expect(resource2.name).toBe('John');
+    expect(resource2.foo).toBe('bar');
+  });
 });
 
 
