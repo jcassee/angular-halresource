@@ -30,7 +30,6 @@ angular.module('halresource', [])
       // Make sure properties can be removed when applying a different profile
       var props = angular.copy(properties);
       angular.forEach(props, function (prop) {
-        prop.enumerable = true;
         prop.configurable = true;
       });
       registeredProfiles[profile] = props;
@@ -98,12 +97,23 @@ angular.module('halresource', [])
               return profile;
             },
             set: function (value) {
+              // Remove old profiles
+              var oldProfiles = angular.isArray(profile) ? profile : [profile];
+              oldProfiles.forEach(function (profile) {
+                var properties = profile ? registeredProfiles[profile] || {} : {};
+                Object.keys(properties).forEach(function (key) {
+                  delete prototype[key];
+                });
+              });
+
+
               Object.keys(prototype).forEach(function (prop) {
                 delete prototype[prop];
               }, this);
 
-              var profiles = angular.isArray(value) ? value : [value];
-              profiles.forEach(function (profile) {
+              // Apply new profiles
+              var newProfiles = angular.isArray(value) ? value : [value];
+              newProfiles.forEach(function (profile) {
                 var properties = profile ? registeredProfiles[profile] || {} : {};
                 Object.defineProperties(prototype, properties);
               });

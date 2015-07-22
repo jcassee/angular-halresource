@@ -487,4 +487,15 @@ describe('HalResource', function () {
     expect(resource.foo).toBe('bar');
     expect(resource.qux).toBe('baz');
   });
+
+  it('does not include profile properties in HTTP data', function () {
+    resource.$profile = profileUri;
+    resource.name = 'John';
+
+    resource.$put();
+    $httpBackend.expectPUT(uri, {"name":"John","_links":{"self":{"href":"http://example.com"}}},
+        {'Accept': 'application/hal+json', 'Content-Type': 'application/hal+json'})
+      .respond(204);
+    $httpBackend.flush();
+  });
 });
