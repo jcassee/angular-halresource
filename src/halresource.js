@@ -153,6 +153,17 @@ angular.module('halresource', [])
 
               profile = value;
             }
+          },
+
+          /**
+           * The timestamp of the last successful $get or $put request.
+           *
+           * @property
+           * @type {number}
+           */
+          $syncTime: {
+            value: null,
+            writable: true
           }
         });
 
@@ -261,14 +272,6 @@ angular.module('halresource', [])
             return this.$context.get(uri);
           }, this);
         }},
-
-        /**
-         * The timestamp of the last successful $get or $put request.
-         *
-         * @property
-         * @type {number}
-         */
-        $syncTime: {value: null, writable: true},
 
         /**
          * Perform a HTTP GET request and update the resource with the response data.
