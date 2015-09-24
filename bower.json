@@ -4,7 +4,7 @@
   "version": "1.4.0",
   "homepage": "https://github.com/jcassee/angular-halresource",
   "license": "MIT",
-  "main": "src/halresource.js",
+  "main": "dist/halresource.js",
   "ignore": [
     ".editorconfig",
     ".gitignore",
@@ -12,6 +12,7 @@
   ],
   "dependencies": {
     "angular": "^1.3",
+    "dexie": "^1.1",
     "uri-templates": "^0.1"
   },
   "devDependencies": {

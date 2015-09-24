@@ -239,74 +239,15 @@ describe('HalResource', function () {
     expect(resource.$syncTime).toBeNull();
   });
 
-  it('performs HTTP PUT requests', function () {
-    var promiseResult = null;
-    resource.$put().then(function (result) { promiseResult = result; });
-    $httpBackend.expectPUT(uri, {"_links":{"self":{"href":"http://example.com"}}},
-          {'Accept': 'application/hal+json', 'Content-Type': 'application/hal+json'})
-        .respond(204);
-    $httpBackend.flush();
-    expect(promiseResult).toBe(resource);
-    expect(resource.$syncTime / 10).toBeCloseTo(Date.now() / 10, 0);
-  });
-
-  it('performs HTTP PUT requests with HAL response', function () {
-    var promiseResult = null;
-    resource.$put().then(function (result) { promiseResult = result; });
-    $httpBackend.expectPUT(uri, {"_links":{"self":{"href":"http://example.com"}}},
-          {'Accept': 'application/hal+json', 'Content-Type': 'application/hal+json'})
-        .respond({name: 'John', _links: {self: {href: uri}}}, {'Content-Type': 'application/hal+json'});
-    $httpBackend.flush();
-    expect(promiseResult).toBe(resource);
-    expect(resource.name).toBe('John');
-    expect(resource.$syncTime / 10).toBeCloseTo(Date.now() / 10, 0);
-  });
-
-  it('rejects a HTTP PUT request with HAL response if the response contains no data', function () {
-    var rejected = false;
-    resource.$put().catch(function () { rejected = true; });
-    $httpBackend.expectPUT(uri, {"_links":{"self":{"href":"http://example.com"}}},
-        {'Accept': 'application/hal+json', 'Content-Type': 'application/hal+json'})
-      .respond('', {'Content-Type': 'application/hal+json'});
-    $httpBackend.flush();
-    expect(rejected).toBe(true);
-    expect(resource.name).toBeUndefined();
-    expect(resource.$syncTime / 10).toBeCloseTo(Date.now() / 10, 0);  // because the request was accepted
-  });
-
   it('performs state HTTP PUT requests', function () {
     var promiseResult = null;
-    resource.$putState().then(function (result) { promiseResult = result; });
+    resource.$put().then(function (result) { promiseResult = result; });
     $httpBackend.expectPUT(uri, {},
           {'Accept': 'application/hal+json', 'Content-Type': 'application/json'})
         .respond(204);
     $httpBackend.flush();
     expect(promiseResult).toBe(resource);
     expect(resource.$syncTime / 10).toBeCloseTo(Date.now() / 10, 0);
-  });
-
-  it('performs state HTTP PUT requests with HAL response', function () {
-    var promiseResult = null;
-    resource.$putState().then(function (result) { promiseResult = result; });
-    $httpBackend.expectPUT(uri, {},
-          {'Accept': 'application/hal+json', 'Content-Type': 'application/json'})
-        .respond('{"name": "John", "_links": {"self": {"href": "'+uri+'"}}}', {'Content-Type': 'application/hal+json'});
-    $httpBackend.flush();
-    expect(promiseResult).toBe(resource);
-    expect(resource.name).toBe('John');
-    expect(resource.$syncTime / 10).toBeCloseTo(Date.now() / 10, 0);
-  });
-
-  it('rejects a state HTTP PUT request with HAL response if the response contains no data', function () {
-    var rejected = false;
-    resource.$putState().catch(function () { rejected = true; });
-    $httpBackend.expectPUT(uri, {},
-        {'Accept': 'application/hal+json', 'Content-Type': 'application/json'})
-      .respond('', {'Content-Type': 'application/hal+json'});
-    $httpBackend.flush();
-    expect(rejected).toBe(true);
-    expect(resource.name).toBeUndefined();
-    expect(resource.$syncTime / 10).toBeCloseTo(Date.now() / 10, 0);  // because the request was accepted
   });
 
   it('performs HTTP DELETE requests', function () {
@@ -509,8 +450,8 @@ describe('HalResource', function () {
     resource.name = 'John';
 
     resource.$put();
-    $httpBackend.expectPUT(uri, {"name":"John","_links":{"self":{"href":"http://example.com"}}},
-        {'Accept': 'application/hal+json', 'Content-Type': 'application/hal+json'})
+    $httpBackend.expectPUT(uri, {"name":"John"},
+        {'Accept': 'application/hal+json', 'Content-Type': 'application/json'})
       .respond(204);
     $httpBackend.flush();
   });
